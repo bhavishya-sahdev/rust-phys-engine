@@ -1,13 +1,20 @@
 use std::collections::HashMap;
 
 use nalgebra::Vector2;
+use parry2d::{
+    math::{Isometry, Vector},
+    query::Contact,
+    shape::{Ball, Cuboid, SharedShape},
+};
 
+#[derive(Clone, Debug)]
 pub struct RigidBody {
     pub position: Vector2<f32>,
     pub velocity: Vector2<f32>,
     pub acceleration: Vector2<f32>,
     pub mass: f32,
     pub forces: HashMap<String, Vector2<f32>>,
+    pub collider: SharedShape,
 }
 
 impl RigidBody {
@@ -24,7 +31,49 @@ impl RigidBody {
             acceleration: Vector2::from([0.0, 0.0]),
             mass,
             forces: HashMap::new(),
+            collider: SharedShape::new(Ball::new(mass * 2.0)),
         }
+    }
+
+    /// Create a new RigidBody object with Circular colliders
+    pub fn new_circle(position: (f32, f32), mass: f32, radius: f32) -> Self {
+        RigidBody {
+            position: Vector2::from([position.0, position.1]),
+            velocity: Vector2::from([0.0, 0.0]),
+            acceleration: Vector2::from([0.0, 0.0]),
+            mass,
+            forces: HashMap::new(),
+            collider: SharedShape::new(Ball::new(radius)),
+        }
+    }
+
+    /// Create a new RigidBody object with Circular colliders
+    pub fn new_box(position: (f32, f32), mass: f32, width: f32, height: f32) -> Self {
+        RigidBody {
+            position: Vector2::from([position.0, position.1]),
+            velocity: Vector2::from([0.0, 0.0]),
+            acceleration: Vector2::from([0.0, 0.0]),
+            mass,
+            forces: HashMap::new(),
+            collider: SharedShape::new(Cuboid::new(Vector::new(width / 2.0, height / 2.0))),
+        }
+    }
+
+    pub fn check_collision(&self, other: &RigidBody) -> Option<Contact> {
+        // Convert our position to Parry2d format
+        let pos1 = Isometry::new(self.position, 0.0);
+        let pos2 = Isometry::new(other.position, 0.0);
+
+        // Use Parry2d's collision detection
+        parry2d::query::contact(
+            &pos1,
+            &*self.collider,
+            &pos2,
+            &*other.collider,
+            1.0, // Distance threshold
+        )
+        .ok()
+        .flatten()
     }
 
     pub fn calculate_gravity(&self, other: &RigidBody) -> Vector2<f32> {
